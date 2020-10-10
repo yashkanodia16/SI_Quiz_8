@@ -51,6 +51,18 @@ var cache = (duration) => {
   };
 };
 
+/**  
+* @swagger  
+* definitions:  
+*   Company:  
+*     properties:  
+*       COMPANY_ID:  
+*         type: string  
+*       COMPANY_NAME:  
+*         type: string  
+*       COMPANY_CITY:  
+*         type: string   
+*/
 /**
  * @swagger
  * /orders:
@@ -68,7 +80,7 @@ app.get("/orders", cache(10), async (req, res) => {
     conn = await pool.getConnection();
     var query = "select * from orders";
     var rows = await conn.query(query);
-    res.setHeader("Content-type", "application-json");
+    res.setHeader("Content-type", "application/json");
     res.status(200).send(rows);
   } catch (err) {
     throw err;
@@ -94,9 +106,10 @@ app.get("/foods", cache(10), async (req, res) => {
     conn = await pool.getConnection();
     var query = "select * from foods";
     var rows = await conn.query(query);
-    res.setHeader("Content-type", "application-json");
+    res.setHeader("Content-type", "application/json");
     res.status(200).send(rows);
   } catch (err) {
+    console.log(err);
     throw err;
   } finally {
     if (conn) return conn.end();
@@ -120,7 +133,7 @@ app.get("/daysOrder", cache(10), async (req, res) => {
     conn = await pool.getConnection();
     var query = "select * from daysorder";
     var rows = await conn.query(query);
-    res.setHeader("Content-type", "application-json");
+    res.setHeader("Content-type", "application/json");
     res.status(200).send(rows);
   } catch (err) {
     throw err;
@@ -166,7 +179,6 @@ app.get("/daysOrder", cache(10), async (req, res) => {
  */
 app.post(
   "/foods",
-  [check("ITEM_NAME", "Name must contain 2 characters").not().isEmpty().trim()],
   async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
@@ -176,13 +188,14 @@ app.post(
     const { ITEM_ID, ITEM_NAME, ITEM_UNIT, COMPANY_ID } = req.body;
     try {
       conn = await pool.getConnection();
-      var query = await pool.query(
+      console.log(req.body)
+      var rows = await conn.query(
         `INSERT INTO foods (ITEM_ID, ITEM_NAME, ITEM_UNIT, COMPANY_ID) VALUES ('${ITEM_ID}', '${ITEM_NAME}', '${ITEM_UNIT}', '${COMPANY_ID}')`
       );
-      var rows = await conn.query(query);
       res.setHeader("Content-type", "application/json");
       res.status(200).send(rows);
     } catch (err) {
+      console.log(err);
       throw err;
     } finally {
       if (conn) return conn.end();
@@ -190,8 +203,30 @@ app.post(
   }
 );
 
+  
+/**  
+* @swagger  
+* /foods:  
+*    put:  
+*      description: add or update a record to foods table  
+*      produces:  
+*          - application/json  
+*      responses:  
+*          200:  
+*              description: Added or Updated data to foods table  
+*          400:  
+*              description: Errors in input object  
+*      parameters:  
+*          - name: id  
+*            description: object  
+*            in: body  
+*            required: true  
+*            schema:  
+*              $ref: '#/definitions/Foods'  
+*  
+*/
 app.put(
-  "/foods/:id",
+  "/foods",
   [
     check("ITEM_NAME", "Name must contain 2 characters").not().isEmpty().trim(),
     check("ITEM_UNIT", "Unit must contain 2 characters").not().isEmpty().trim(),
@@ -204,14 +239,15 @@ app.put(
     }
     let conn;
     try {
-      const ID = req.params.id.trim();
+      const ID = req.body.ITEM_ID.trim();
       if (ID == "") {
         res.status(400).json({ errors: "Item Id should not be empty" });
       } else {
+	console.log(req);
         const { ITEM_NAME, ITEM_UNIT, COMPANY_ID } = req.body;
         conn = await pool.getConnection();
         var result = await pool.query(
-          `UPDATE foods SET ITEM_NAME = '${ITEM_NAME}' WHERE ITEM_ID = '${ID}'`
+          `UPDATE foods SET ITEM_NAME = '${ITEM_NAME}',ITEM_UNIT = '${ITEM_UNIT}', COMPANY_ID = '${COMPANY_ID}' WHERE ITEM_ID = '${ID}'`
         );
         if (result.affectedRows == 0) {
           query = `INSERT INTO foods VALUES ('${ID}', '${ITEM_NAME}', '${ITEM_UNIT}', '${COMPANY_ID}')`;
@@ -251,13 +287,13 @@ app.put(
  *              $ref: '#/definitions/Company'
  *
  */
-app.patch("/Company/:id", async (req, res) => {
+app.patch("/Company", async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
     return res.status(400).send(errors);
   }
   let conn;
-  const id = req.params.id;
+  const id = req.body.COMPANY_ID;
   const { COMPANY_NAME, COMPANY_CITY } = req.body;
   let rows = 0;
   try {
@@ -321,6 +357,7 @@ app.delete("/foods/:id", async (req, res) => {
     }
     res.status(200).send(rows);
   } catch (err) {
+    console.log(error);
     res.status(500).send(res);
   } finally {
     if (conn) return conn.end();
